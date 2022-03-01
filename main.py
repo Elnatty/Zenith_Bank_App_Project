@@ -142,45 +142,46 @@ def deposit_money(deposit_amt, username):
 # withdraw_money main function
 def withd_money(withdraw_amt, username):
     try:
+        global bal_check_user
+
         conn = sqlite3.connect('banking.db')
         cur = conn.cursor()
         if (len(withdraw_amount.get()) == 0 or len(withdraw_password.get()) == 0):
             withdraw_status_page_3.configure(text='')
             withdraw_status_page_3.configure(text='enter required entries..')
             print('enter required entries..')
+        elif username != un_for_check:
+            print('wrong username..')
+            withdraw_status_page_3.configure(text='')
+            withdraw_status_page_3.configure(text='wrong username..')
+            # to handle negative inputs
+        elif int(withdraw_amt) <= 0:
+            withdraw_status_page_3.configure(text='')
+            withdraw_status_page_3.configure(text='don\'t be smart..')
+        # to handle insufficient bal.
+        elif int(withdraw_amt) >= int(bal_check_user[0]):
+            withdraw_status_page_3.configure(text='')
+            withdraw_status_page_3.configure(text='insufficient balance..')
         else:
-            if username != un_for_check:
-                print('wrong username..')
-                withdraw_status_page_3.configure(text='')
-                withdraw_status_page_3.configure(text='wrong username..')
-            else:
-                # to handle negative inputs
-                if int(withdraw_amt) <= 0:
-                    withdraw_status_page_3.configure(text='')
-                    withdraw_status_page_3.configure(text='don\'t be smart..')
-                # to handle insufficient bal.
-                elif int(withdraw_amt) >= int(bal_check):
-                    withdraw_status_page_3.configure(text='')
-                    withdraw_status_page_3.configure(text='insufficient balance..')
-                else:
-                    cur.execute('UPDATE bank SET BALANCE=BALANCE - {} WHERE username=?'.format(withdraw_amt), (username,))
-                    usrbal = cur.execute('SELECT balance from bank WHERE username=?', (username,))
-                    global usr
-                    usr = usrbal.fetchone()
-                    usr = str(usr[0])
-                    conn.commit()
-                    conn.close()
-                    print(f'u withdrew ${withdraw_amt} new balance is ${usr}')
-                    withdraw_status_page_3.configure(text='')
-                    withdraw_status_page_3.configure(
-                        text='withdraw of ${} success,\nnew balance is ${}'.format(withdraw_amt, usr))
-                    withdraw_amt.format('')
-                    # errors to handle
-                    # TypeError--username not exist.
-    except (TypeError, ValueError, sqlite3.OperationalError) as e:
-        print(e)
+            cur.execute('UPDATE bank SET BALANCE=BALANCE - {} WHERE username=?'.format(withdraw_amt), (username,))
+            usrbal = cur.execute('SELECT balance from bank WHERE username=?', (username,))
+            global usr
+            usr = usrbal.fetchone()
+            usr = str(usr[0])
+            conn.commit()
+            conn.close()
+            print(f'u withdrew ${withdraw_amt} new balance is ${usr}')
+            withdraw_status_page_3.configure(text='')
+            withdraw_status_page_3.configure(
+                text='withdraw of ${} success,\nnew balance is ${}'.format(withdraw_amt, usr))
+            withdraw_amt.format('')
+            # errors to handle
+            # TypeError--username not exist.
+            return usr
+    except (TypeError, ValueError, sqlite3.OperationalError):
+        print('error..')
         withdraw_status_page_3.configure(text='')
-        withdraw_status_page_3.configure(text=e)
+        withdraw_status_page_3.configure(text='error..')
 
 
 # navigate back to user main screen.
@@ -275,16 +276,15 @@ def withdraw():
 
 
 def login_sql(username, password):
+    global bal_check_user
     global un_for_check
     un_for_check = username
     conn = sqlite3.connect('banking.db')
     cur = conn.cursor()
     check = cur.execute('SELECT username, password, balance FROM bank WHERE username=? AND password=?', (username, password))
-    row = check.fetchone()
-    global bal_check
-    bal_check = str(row[2])
-
-    if not row:
+    bal_check_row = check.fetchall()
+    # login checks..
+    if not bal_check_row:
         print('user does not exist, create an account!')
         login_info.configure(text='user does not exist, create an account!')
     else:
@@ -325,8 +325,13 @@ def login_sql(username, password):
         # hack info.
         page_2_hack_label.grid(row=3, column=0)
         page_2_hack_label.configure(text=user_hack)
+    # for insufficient balance check..
+    check = cur.execute('SELECT balance FROM bank WHERE username=? AND password=?', (username, password))
+    bal_check_user = check.fetchone()
+    conn.close()
+    return bal_check_user, un_for_check
+    #print(bal_check_row)
 
-        #
 
 
 # 01 ---------->>> tkinter wrapper functions
@@ -400,6 +405,7 @@ cur.execute('SELECT * FROM bank')
 rows = cur.fetchall()
 conn.close()
 info = ''
+
 for row in rows:
     info += str(row[0])+':' + ' '+'f_name -> ' + str(row[1])+',' + ' ''l_name -> '+  str(row[2])+',' + ' ' +'username -> ' +str(row[3])+',' + ' ' +'password -> ' + str(row[4]) + ' ' +'acct_num -> ' +str(row[5])+',' + ' ' +'balance -> $'+str(row[6])+'\n'
 # print(info)
@@ -488,8 +494,6 @@ register_info.grid(row=5, column=0, columnspan=2)
 
 login_info = Label(login_tab)
 login_info.grid(row=5, column=0, columnspan=2)
-
-# 4 ---------->>>
 
 
 
